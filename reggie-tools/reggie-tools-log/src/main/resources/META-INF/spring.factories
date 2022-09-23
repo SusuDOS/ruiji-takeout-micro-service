@@ -1,0 +1,4 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+    com.szl.reggie.log.LogAutoConfiguration
+org.springframework.context.ApplicationContextInitializer=\
+    com.szl.reggie.log.init.ApplicationLoggerInitializer

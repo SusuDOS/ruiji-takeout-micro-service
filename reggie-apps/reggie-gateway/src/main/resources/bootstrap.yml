@@ -1,0 +1,92 @@
+
+# @xxx@ 从pom.xml中取值, 所以 @xx@ 标注的值，都不能从nacos中获取
+reggie:
+  # docker部署时，需要指定， 表示运行该服务的宿主机IP
+  local-ip: ${LOCAL_IP:${spring.cloud.client.ip-address}}
+  nacos:
+    ip: ${NACOS_IP:@pom.nacos.ip@}
+    port: ${NACOS_PORT:@pom.nacos.port@}
+    namespace: ${NACOS_ID:@pom.nacos.namespace@}
+
+spring:
+  application:
+    name: @project.artifactId@
+  profiles:
+    active: @pom.profile.name@
+  main:
+    allow-bean-definition-overriding: true # Spring Boot 2.1 需要设定
+  cloud:
+    nacos:
+      config:
+        server-addr: ${reggie.nacos.ip}:${reggie.nacos.port}
+        file-extension: yml
+        namespace: ${reggie.nacos.namespace}
+        shared-dataids: common.yml,redis.yml
+        refreshable-dataids: common.yml
+        enabled: true
+      discovery:
+        server-addr: ${reggie.nacos.ip}:${reggie.nacos.port}
+        namespace: ${reggie.nacos.namespace}
+        metadata: # 元数据，用于权限服务实时获取各个服务的所有接口
+          management.context-path: ${server.servlet.context-path:}${spring.mvc.servlet.path:}${management.endpoints.web.base-path:}
+    gateway:
+      routes:
+      #  如果匹配路径有包含关系，被包含路径配置放在前边，先加载
+        - id: reggie-auth-server #路由的ID，没有固定规则但要求唯一，建议配合服务名 -横线表示数组可以配置多个
+          predicates:
+            - Path=/employee/login/**,/employee/logout/**,/user/login/**,/user/sendMsg/** #匹配gateway的请求
+          filters:
+            - StripPrefix=0      #请求跳过gateway
+          uri: http://localhost:8085/
+        #
+        - id: reggie-backend-application #路由的ID，没有固定规则但要求唯一，建议配合服务名 -横线表示数组可以配置多个
+          predicates:
+            - Path=/backend/**,/employee/**,/category/**,/dish/**,/setmeal/**,/common/**  #匹配gateway的请求
+          filters:
+            - StripPrefix=0      #请求跳过gateway
+          uri: http://localhost:8081/
+        #
+        - id: reggie-front-application #路由的ID，没有固定规则但要求唯一，建议配合服务名
+          predicates:
+            - Path=/front/**,/addressBook/**,/shoppingCart/**,/order/**  #断言,路径相匹配的进行路由
+          # - After=2021-06-07T16:41:36.583681900+08:00[Asia/Shanghai]  #该时间后生效
+          filters:
+            - StripPrefix=0      #请求跳过gateway
+          uri: http://localhost:8083/   #匹配后提供服务的路由地址
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: # 允许哪些网站的跨域请求
+              - "http://localhost:8090"
+            allowedMethods: # 允许的跨域ajax的请求方式
+              - "GET"
+              - "POST"
+              - "DELETE"
+              - "PUT"
+              - "OPTIONS"
+            allowedHeaders: "*" # 允许在请求中携带的头信息
+            allowCredentials: true # 是否允许携带cookie
+            maxAge: 360000 # 这次跨域检测的有效期，即一定时间内就不需要重复询问是否允许跨域了，直接请求即可。
+
+  aop:
+    proxy-target-class: true
+    auto: true
+
+# 只能配置在bootstrap.yml ，否则会生成 log.path_IS_UNDEFINED 文件夹
+# window会自动在 代码所在盘 根目录下自动创建文件夹，  如： D:/data/projects/logs
+logging:
+  file:
+    path: /data/projects/logs
+    name: ${logging.file.path}/${spring.application.name}/root.log
+
+# 用于/actuator/info
+info:
+  name: '@project.name@'
+  description: '@project.description@'
+  version: '@project.version@'
+  spring-boot-version: '@spring.boot.version@'
+  spring-cloud-version: '@spring.cloud.version@'
+
+
+
